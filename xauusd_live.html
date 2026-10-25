@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XAUUSD Macro & Sentiment Dashboard</title>
+<style>
+:root{--bg:#fff;--side:#f0f2f6;--ink:#262730;--mute:#6b7280;--line:#e3e5ea;--card:#fff;--up:#09ab3b;--dn:#e5322d;--gold:#d49b1a;color-scheme:light}
+@media(prefers-color-scheme:dark){:root{--bg:#0e1117;--side:#262730;--ink:#fafafa;--mute:#9aa0aa;--line:#3a3d48;--card:#161a22;--up:#3dd56d;--dn:#ff6b6b;--gold:#ffd600;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;min-height:100vh}
+aside{width:250px;background:var(--side);padding:16px;flex:none}
+main{flex:1;padding:20px 28px 40px;min-width:0}
+@media(max-width:820px){body{flex-direction:column}aside{width:100%}}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:20px;margin:22px 0 8px}h3{font-size:14px;margin:14px 0 4px}
+.cap{color:var(--mute);font-size:13px}
+aside label{display:block;font-size:12px;color:var(--mute);margin:10px 0 2px}
+aside input[type=number]{width:100%;padding:6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+.chk{display:flex;gap:8px;align-items:center;margin:10px 0;font-size:14px}
+button{padding:6px 12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:6px;font:inherit;cursor:pointer;margin-top:12px}
+button:focus-visible,input:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin:16px 0}
+.m small{display:block;color:var(--mute);font-size:13px}
+.m b{font-size:28px;font-weight:500;font-variant-numeric:tabular-nums}
+.d{display:inline-block;margin-top:2px;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.d.up{color:var(--up);background:color-mix(in srgb,var(--up) 15%,transparent)}
+.d.dn{color:var(--dn);background:color-mix(in srgb,var(--dn) 15%,transparent)}
+hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+@media(max-width:900px){.cols{grid-template-columns:1fr}}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--mute);font-weight:500;border-bottom:1px solid var(--line);padding:6px 8px}
+td{padding:6px 8px;border-bottom:1px solid var(--line)}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.box{padding:10px 14px;border-radius:6px;font-size:14px;margin:10px 0}
+.ok{background:color-mix(in srgb,var(--up) 15%,transparent)}
+.warn{background:color-mix(in srgb,var(--gold) 20%,transparent)}
+.err{background:color-mix(in srgb,var(--dn) 15%,transparent)}
+.info{background:color-mix(in srgb,#2b7cff 14%,transparent)}
+.bar{height:10px;background:var(--dn);border-radius:5px;overflow:hidden}.bar i{display:block;height:100%;background:var(--up)}
+ul{padding-left:18px;margin:0}li{margin:4px 0;font-size:14px}
+.sgs{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:900px){.sgs{grid-template-columns:1fr}}
+.sg{border:1px solid var(--line);border-radius:8px;padding:14px 16px}.sg p{margin:8px 0}
+.sh{display:flex;justify-content:space-between;align-items:center}.tag{padding:2px 12px;border-radius:12px;font-weight:700;font-size:13px}
+.tag.up{color:var(--up);background:color-mix(in srgb,var(--up) 15%,transparent)}.tag.dn{color:var(--dn);background:color-mix(in srgb,var(--dn) 15%,transparent)}.tag.wt{color:var(--gold);background:color-mix(in srgb,var(--gold) 20%,transparent)}
+</style>
+</head>
+<body>
+<aside>
+  <h3 style="margin-top:0">Settings</h3>
+  <div class="chk"><input type="checkbox" id="geo_on"><label for="geo_on" style="margin:0;color:inherit;font-size:14px">Score geopolitics</label></div>
+  <p class="cap" style="margin:0">Off by default: the headline count is biased by the news search terms, so it is shown as context only.</p>
+  <div id="fields"></div>
+  <label for="refresh">Auto-refresh (seconds, 0 = off)</label><input type="number" id="refresh" min="0" step="10">
+  <button id="now" type="button">Refresh now</button>
+</aside>
+
+<main>
+  <h1>🪙 XAUUSD 6-Pillar Macro & Sentiment Dashboard</h1>
+  <div class="cap" id="sub">Connecting to the bridge…</div>
+  <div id="err"></div>
+  <div class="metrics" id="metrics"></div>
+  <div class="cap" id="ratio"></div>
+  <div class="cols" id="corrrow" style="grid-template-columns:200px 1fr;margin-top:10px"></div>
+  <div id="sig"></div>
+  <hr>
+  <div class="cols">
+    <div>
+      <h2>Composite Score</h2>
+      <div id="gauge"></div>
+      <div class="cap" id="cov"></div>
+      <div id="evtbox"></div>
+      <h3>Pillar breakdown</h3>
+      <div id="ptable"></div>
+    </div>
+    <div>
+      <h2>Retail Positioning</h2>
+      <div id="retail"></div>
+      <hr>
+      <h2>Upcoming High/Medium-Impact USD Events</h2>
+      <div id="cal"></div>
+      <hr>
+      <h2>Geopolitical headlines (24h)</h2>
+      <div id="geo"></div>
+    </div>
+  </div>
+  <hr>
+  <div class="cap" id="foot"></div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const clip = (x, l = -1, h = 1) => Math.min(h, Math.max(l, x));
+const BASE = location.protocol === "file:" ? "http://127.0.0.1:5000" : "";
+const DEF = {geo_on: false, refresh: 60, retail: 0, dxy_full: 0.5, yld_full: 8, vix_floor: 18, vix_full: 28, wti_full: 2, evt_h: 72};
+const FIELDS = [["retail", "Manual retail % long (0 = off)", 1], ["dxy_full", "DXY % move for full score", 0.05], ["yld_full", "Yield bps move for full score", 1],
+  ["vix_floor", "VIX where fear bid starts", 1], ["vix_full", "VIX for full score", 1], ["wti_full", "WTI % move for full score", 0.5], ["evt_h", "Event-risk window (hours)", 1]];
+let S = {...DEF}, D = null, timer = null;
+
+try { Object.assign(S, JSON.parse(localStorage.getItem("xau_live") || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem("xau_live", JSON.stringify(S)); } catch (e) {} };
+
+$("fields").innerHTML = FIELDS.map(([k, l, st]) => `<label for="${k}">${l}</label><input type="number" id="${k}" step="${st}">`).join("");
+FIELDS.forEach(([k]) => { $(k).value = S[k]; $(k).addEventListener("input", () => { S[k] = +$(k).value; save(); render(); }); });
+$("geo_on").checked = S.geo_on; $("refresh").value = S.refresh;
+$("geo_on").addEventListener("change", () => { S.geo_on = $("geo_on").checked; save(); render(); });
+$("refresh").addEventListener("input", () => { S.refresh = +$("refresh").value; save(); schedule(); });
+$("now").addEventListener("click", load);
+
+const f2 = (x, n = 2) => (x === null || x === undefined) ? "n/a" : Number(x).toLocaleString(undefined, {minimumFractionDigits: n, maximumFractionDigits: n});
+const sg = (x, n = 2) => (x > 0 ? "+" : "") + x.toFixed(n);
+
+function metric(label, q, fmt, inverse) {
+  if (!q) return `<div class="m"><small>${label}</small><b>n/a</b></div>`;
+  const up = (q.pct >= 0) !== !!inverse;
+  return `<div class="m"><small>${label}</small><b>${fmt(q.current)}</b><br><span class="d ${up ? "up" : "dn"}">${q.pct >= 0 ? "▲" : "▼"} ${sg(q.pct)}%</span></div>`;
+}
+
+function pillars() {
+  const P = [], d = D;
+  P.push(["US Dollar (DXY)", d.dxy ? clip(-d.dxy.pct / S.dxy_full) : null, d.dxy ? sg(d.dxy.pct) + "% day-over-day" : "data unavailable", 1]);
+  if (d.real_yield) P.push(["Real 10Y yield (TIPS)", clip(-d.real_yield.bps / S.yld_full), `${f2(d.real_yield.current)}% (${sg(d.real_yield.bps, 1)} bps, as of ${d.real_yield.asof})`, 1]);
+  else if (d.us10y) P.push(["Nominal 10Y yield (proxy)", clip(-d.us10y.bps / S.yld_full) * 0.7, `${f2(d.us10y.current)}% (${sg(d.us10y.bps, 1)} bps)`, 1]);
+  else P.push(["Yields", null, "data unavailable", 1]);
+  const rl = S.retail > 0 ? S.retail : d.retail_long;
+  P.push(["Retail positioning (contrarian)", rl == null ? null : clip((50 - rl) / 15), rl == null ? "scrape unavailable, use manual override" : `${rl.toFixed(0)}% long / ${(100 - rl).toFixed(0)}% short`, 1]);
+  P.push(["Fear gauge (VIX)", d.vix ? clip((d.vix.current - S.vix_floor) / Math.max(S.vix_full - S.vix_floor, 1), 0, 1) : null, d.vix ? "VIX " + f2(d.vix.current) : "data unavailable", 1]);
+  if (d.geo) {
+    const sc = clip((d.geo.esc - d.geo.de) / 12);
+    P.push([S.geo_on ? "Geopolitics (headlines)" : "Geopolitics (context only)", S.geo_on ? sc : null, `${d.geo.esc} escalation vs ${d.geo.de} de-escalation of ${d.geo.n}`, S.geo_on ? 1 : 0]);
+  } else P.push(["Geopolitics", null, "news feed unavailable", S.geo_on ? 1 : 0]);
+  let note = d.wti ? `WTI $${f2(d.wti.current)} (${sg(d.wti.pct)}%), weight 0.5` : "data unavailable";
+  if (d.wti && d.corr && d.corr.corr20 != null && Math.abs(d.corr.corr20) < 0.2) note += ", link to gold weak now";
+  P.push(["Oil (WTI) inflation/risk impulse", d.wti ? clip(d.wti.pct / S.wti_full) * 0.5 : null, note, 0.5]);
+  return P;
+}
+
+function gauge(v, M) {
+  const pt = (x, r = 80) => { const a = Math.PI * (1 - (x + M) / (2 * M)); return [100 + r * Math.cos(a), 100 - r * Math.sin(a)]; };
+  const arc = (a, b, c) => { const [x0, y0] = pt(a), [x1, y1] = pt(b); return `<path d="M${x0} ${y0}A80 80 0 0 1 ${x1} ${y1}" stroke="${c}" stroke-width="16" fill="none" opacity=".35"/>`; };
+  const [nx, ny] = pt(clip(v, -M, M), 68);
+  return `<svg viewBox="0 0 200 128" style="max-width:340px;width:100%" role="img" aria-label="Composite score ${v.toFixed(2)}">
+    ${arc(-M, -1.5, "var(--dn)")}${arc(-1.5, 1.5, "var(--gold)")}${arc(1.5, M, "var(--up)")}
+    <line x1="100" y1="100" x2="${nx}" y2="${ny}" stroke="var(--ink)" stroke-width="3" stroke-linecap="round"/><circle cx="100" cy="100" r="5" fill="var(--ink)"/>
+    <text x="100" y="124" text-anchor="middle" font-size="22" font-weight="700" fill="var(--ink)">${sg(v)}</text>
+    <text x="14" y="112" font-size="8" fill="var(--mute)">−${M}</text><text x="186" y="112" font-size="8" text-anchor="end" fill="var(--mute)">+${M}</text></svg>`;
+}
+
+function corrChart(series) {
+  if (!series || series.length < 2) return "";
+  const W = 600, H = 150, n = series.length;
+  const pts = series.map(([, v], i) => `${(i / (n - 1) * W).toFixed(1)},${(H / 2 - v * H / 2).toFixed(1)}`).join(" ");
+  return `<div class="cap">Rolling 20-day correlation: gold vs WTI returns (${series[0][0]} to ${series[n - 1][0]})</div>
+  <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:150px" preserveAspectRatio="none"><line x1="0" x2="${W}" y1="${H / 2}" y2="${H / 2}" stroke="var(--mute)" stroke-dasharray="4"/><polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function render() {
+  if (!D) return;
+  const d = D;
+  $("sub").textContent = "Live synthesis of DXY, yields, positioning, volatility, oil, geopolitics and scheduled event risk.";
+  $("metrics").innerHTML =
+    metric(`Gold (${d.gold ? d.gold.src : "n/a"})`, d.gold, x => "$" + f2(x)) + metric("US Dollar (DXY)", d.dxy, x => f2(x), true) +
+    metric("US 10Y Yield", d.us10y, x => f2(x) + "%", true) + metric("CBOE VIX", d.vix, x => f2(x)) + metric("WTI Crude", d.wti, x => "$" + f2(x));
+  const c = d.corr;
+  $("ratio").textContent = c ? `Gold/WTI ratio: ${c.ratio} (60-day z-score ${sg(c.z, 1)}). A high z means gold is rich vs oil; context only, not scored.` : "";
+  $("corrrow").innerHTML = c && c.corr20 != null
+    ? `<div><div class="m"><small>Gold–WTI corr (20d)</small><b>${sg(c.corr20)}</b></div><div class="m" style="margin-top:8px"><small>Gold–WTI corr (60d)</small><b>${c.corr60 == null ? "n/a" : sg(c.corr60)}</b></div><div class="cap">Near 0 means the oil pillar carries little information right now.</div></div><div>${corrChart(c.series)}</div>` : "";
+
+  const P = pillars(), scored = P.filter(p => p[3] > 0), live = scored.filter(p => p[1] !== null);
+  const total = live.reduce((a, p) => a + p[1], 0), M = scored.reduce((a, p) => a + p[3], 0);
+  $("gauge").innerHTML = gauge(total, M);
+  $("cov").textContent = `${live.length}/${scored.length} scored pillars live. Unavailable pillars count as 0, not as a guess.`;
+  $("ptable").innerHTML = `<table><tr><th>Pillar</th><th>Score</th><th>Detail</th></tr>${P.map(p => `<tr><td>${p[0]}</td><td class="n">${p[3] === 0 ? "context" : p[1] === null ? "n/a" : sg(p[1])}</td><td>${p[2]}</td></tr>`).join("")}</table>`;
+
+  const ev = d.events || [], now = Date.now(), end = now + S.evt_h * 3600e3;
+  const risk = ev.filter(e => e.impact === "High" && new Date(e.t) <= end);
+  $("evtbox").innerHTML = d.events === null ? `<div class="box warn">Calendar unavailable.</div>` :
+    risk.length ? `<div class="box warn">⚠️ Event risk: ${risk[0].title} at ${new Date(risk[0].t).toUTCString().slice(0, 22)} UTC${risk.length > 1 ? ` (+${risk.length - 1} more high-impact within ${S.evt_h}h)` : ""}. Treat the bias with lower confidence.</div>`
+    : `<div class="box ok">No high-impact USD events in the next ${S.evt_h}h.</div>`;
+  $("cal").innerHTML = ev.length ? `<table><tr><th>When (UTC)</th><th>Event</th><th>Impact</th><th>Forecast</th><th>Previous</th></tr>${ev.slice(0, 8).map(e => `<tr><td>${new Date(e.t).toUTCString().slice(0, 22)}</td><td>${e.title}</td><td>${e.impact}</td><td>${e.forecast}</td><td>${e.previous}</td></tr>`).join("")}</table>` : `<div class="box info">No high/medium-impact USD releases remaining this week.</div>`;
+
+  const rl = S.retail > 0 ? S.retail : d.retail_long;
+  $("retail").innerHTML = rl == null ? `<div class="box info">Retail data unavailable (Myfxbook scrape failed). Enter a value in the sidebar to override.</div>`
+    : `<div><b>Long:</b> ${rl.toFixed(0)}% | <b>Short:</b> ${(100 - rl).toFixed(0)}%${S.retail > 0 ? " (manual)" : " (Myfxbook)"}</div><div class="bar" style="margin-top:6px"><i style="width:${rl}%"></i></div>`;
+  $("geo").innerHTML = d.geo ? `<ul>${d.geo.headlines.slice(0, 6).map(h => `<li>${h}</li>`).join("")}</ul>` : `<div class="box info">News feed unavailable.</div>`;
+  const tk = d.tech || {};
+  let wm = null;
+  if (d.dxy || d.vix || (S.geo_on && d.geo)) {
+    wm = 0;
+    if (d.dxy) wm += clip(-d.dxy.pct / S.dxy_full) * 0.5;
+    if (d.vix) wm -= clip((d.vix.current - 22) / 10, 0, 1) * 0.5;
+    if (S.geo_on && d.geo) wm += clip((d.geo.esc - d.geo.de) / 12) * 0.5;
+  }
+  $("sig").innerHTML = `<hr><h2>Futures signals (rule-based, untested)</h2><div class="sgs">` +
+    sig("Gold futures (GC)", live.length ? total : null, 1.5, tk.gold, risk, S.geo_on ? ["Geopolitics scoring is ON; its headline count is biased, so the macro score may be inflated."] : []) +
+    sig("WTI crude futures (CL)", wm, 0.4, tk.wti, risk, ["Oil macro = dollar + fear gauge" + (S.geo_on ? " + geopolitics" : "") + ". No inventory or OPEC data, so treat as lower reliability than gold."]) +
+    `</div><div class="cap" style="margin-top:8px">Trend = price vs 20/50-day averages on daily bars. A signal needs macro and trend to agree. Levels are ATR-based references, not advice. These rules have not been backtested, so paper-trade first. Gold levels use GC futures, not MT5 spot.</div>`;
+  $("foot").textContent = `Updated ${d.fetched_utc} UTC. Day changes use daily closes, so on weekends they show Friday's session. Not financial advice.`;
+}
+
+function sig(name, macro, thr, t, risk, extra) {
+  if (!t) return `<div class="sg"><div class="sh"><b>${name}</b><span class="tag wt">N/A</span></div><p>Price history unavailable.</p></div>`;
+  const px = t.price, tr = (px > t.ma50 && t.ma20 > t.ma50) ? 1 : (px < t.ma50 && t.ma20 < t.ma50) ? -1 : 0, ext = (px - t.ma20) / t.atr;
+  const md = macro === null ? 0 : macro >= thr ? 1 : macro <= -thr ? -1 : 0, tn = tr > 0 ? "up" : tr < 0 ? "down" : "mixed";
+  let act = "WAIT", why;
+  if (md !== 0 && tr === md) {
+    if (md * ext > 2.5) why = `Macro and trend agree ${md > 0 ? "long" : "short"}, but price is ${Math.abs(ext).toFixed(1)} ATR from its 20-day average. Wait for a pullback instead of chasing.`;
+    else { act = md > 0 ? "LONG" : "SHORT"; why = "Macro lean and trend agree."; }
+  } else if (md !== 0) why = `Macro leans ${md > 0 ? "long" : "short"} but the trend is ${tn}. No trade until they agree.`;
+  else why = tr === 0 ? "No macro edge and no clear trend." : `Trend is ${tn}, but macro gives no edge.`;
+  if (risk.length && act !== "WAIT") why += ` High-impact USD event within ${S.evt_h}h: consider waiting or halving size.`;
+  const lines = [`Macro score ${macro === null ? "n/a" : sg(macro)} (signal needs beyond ±${thr})`, `Trend ${tn}: price ${f2(px)} vs 20d ${f2(t.ma20)} / 50d ${f2(t.ma50)}`, `Extension ${sg(ext, 1)} ATR from the 20-day average`, ...extra];
+  let lv = "";
+  if (act !== "WAIT") {
+    const d = act === "LONG" ? 1 : -1;
+    lv = `<table><tr><th>Reference (daily close)</th><th>Level</th></tr><tr><td>Entry</td><td class="n">${f2(px)}</td></tr><tr><td>Stop (1.5 ATR)</td><td class="n">${f2(px - d * 1.5 * t.atr)}</td></tr><tr><td>Target 1 (1.5R)</td><td class="n">${f2(px + d * 2.25 * t.atr)}</td></tr><tr><td>Target 2 (3R)</td><td class="n">${f2(px + d * 4.5 * t.atr)}</td></tr><tr><td>ATR(14)</td><td class="n">${f2(t.atr)}</td></tr></table>`;
+  }
+  return `<div class="sg"><div class="sh"><b>${name}</b><span class="tag ${act === "LONG" ? "up" : act === "SHORT" ? "dn" : "wt"}">${act}</span></div><p>${why}</p>${lines.map(l => `<div class="cap">${l}</div>`).join("")}${lv}</div>`;
+}
+
+async function load() {
+  try {
+    const r = await fetch(BASE + "/api/dashboard");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    D = await r.json(); $("err").innerHTML = ""; render();
+  } catch (e) {
+    $("err").innerHTML = `<div class="box err">Can't reach the bridge (${e.message}). Start xauusd_bridge.py and open http://127.0.0.1:5000/.</div>`;
+  }
+}
+function schedule() { clearInterval(timer); if (S.refresh > 0) timer = setInterval(load, S.refresh * 1000); }
+load(); schedule();
+</script>
+</body>
+</html>
